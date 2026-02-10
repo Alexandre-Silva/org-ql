@@ -505,7 +505,7 @@ Org QL provides a dynamic block that lists entries matching a query.  In the hea
 +  ~:from~: A buffers/files spec (like ~org-ql-search~'s ~BUFFERS-FILES~).  May be ~buffer~ (the current buffer), ~all~ (all Org buffers), ~agenda~ (files in ~org-agenda-files~), a file/buffer, or a list of them.
 
 +  ~:query~: An Org QL query expression in either sexp or non-sexp form.
-+  ~:columns~ A list of columns, including ~heading~, ~todo~, ~property~, ~priority~, ~deadline~, ~scheduled~, ~closed~.
++  ~:columns~ A list of columns, including ~heading~, ~todo~, ~category~, ~property~, ~priority~, ~deadline~, ~scheduled~, ~closed~.
      -  Each column may also be specified as a list with the second element being a header string.  For example, to abbreviate the priority column: ~(priority "P")~.
      -  For certain columns, like =property=, arguments may be passed by specifying the column type itself as a list.  For example, to display a column showing the values of a ~property~ named ~milestone~, with the header being abbreviated to ~M~: ~((property "milestone") "M")~.
 +  ~:sort~ One or a list of Org QL sorting methods (see ~org-ql-select~).

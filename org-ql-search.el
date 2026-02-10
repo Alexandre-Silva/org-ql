@@ -279,114 +279,16 @@ automatically from the query."
 
 (require 'org-table)
 
-(cl-defun org-dblock-write:org-ql-old (params)
-  "Insert content for org-ql dynamic block at point according to PARAMS.
-Valid parameters include:
-
-  :query    An Org QL query expression in either sexp or string
-            form.
-
-  :columns  A list of columns, including `heading', `todo',
-            `property',`priority',`deadline',`scheduled',`closed'.
-            Each column may also be specified as a list with the
-            second element being a header string.  For example,
-            to abbreviate the priority column: (priority \"P\").
-            For certain columns, like `property', arguments may
-            be passed by specifying the column type itself as a
-            list.  For example, to display a column showing the
-            values of a property named \"milestone\", with the
-            header being abbreviated to \"M\":
-
-              ((property \"milestone\") \"M\").
-
-  :sort     One or a list of Org QL sorting methods
-            (see `org-ql-select').
-
-  :take     Optionally take a number of results from the front (a
-            positive number) or the end (a negative number) of
-            the results.
-
-  :ts-format  Optional format string used to format
-              timestamp-based columns.
-
-For example, an org-ql dynamic block header could look like
-this (must be a single line in the Org buffer):
-
-  #+BEGIN: org-ql :query (todo \"UNDERWAY\")
-:columns (priority todo heading) :sort (priority date)
-:ts-format \"%Y-%m-%d %H:%M\""
-  (-let* (((&plist :query :columns :sort :ts-format :take) params)
-          (query (cl-etypecase query
-                   (string (org-ql--query-string-to-sexp query))
-                   (list ;; SAFETY: Query is in sexp form: ask for confirmation, because it could contain arbitrary code.
-                    (org-ql--ask-unsafe-query query)
-                    query)))
-          (columns (or columns '(heading todo (priority "P"))))
-          ;; MAYBE: Custom column functions.
-          (format-fns
-           ;; NOTE: Backquoting this alist prevents the lambdas from seeing
-           ;; the variable `ts-format', so we use `list' and `cons'.
-           (list (cons 'todo (lambda (element)
-                               (org-element-property :todo-keyword element)))
-                 (cons 'heading (lambda (element)
-                                  (let ((normalized-heading
-                                         (org-ql-search--link-heading-search-string (org-element-property :raw-value element))))
-                                    (org-ql-search--org-make-link-string normalized-heading (org-link-display-format normalized-heading)))))
-                 (cons 'priority (lambda (element)
-                                   (--when-let (org-element-property :priority element)
-                                     (char-to-string it))))
-                 (cons 'deadline (lambda (element)
-                                   (--when-let (org-element-property :deadline element)
-                                     (ts-format ts-format (ts-parse-org-element it)))))
-                 (cons 'scheduled (lambda (element)
-                                    (--when-let (org-element-property :scheduled element)
-                                      (ts-format ts-format (ts-parse-org-element it)))))
-                 (cons 'closed (lambda (element)
-                                 (--when-let (org-element-property :closed element)
-                                   (ts-format ts-format (ts-parse-org-element it)))))
-                 (cons 'property (lambda (element property)
-                                   (org-element-property (intern (concat ":" (upcase property))) element)))))
-          (elements (org-ql-query :from (current-buffer)
-                                  :where query
-                                  :select '(org-ql-view--resolve-element-properties
-                                            (org-element-headline-parser (line-end-position)))
-                                  :order-by sort)))
-    (when take
-      (setf elements (cl-etypecase take
-                       ((and integer (satisfies cl-minusp)) (-take-last (abs take) elements))
-                       (integer (-take take elements)))))
-    (cl-labels ((format-element (element)
-                  (string-join (cl-loop for column in columns
-                                        collect (or (pcase-exhaustive column
-                                                      ((pred symbolp)
-                                                       (funcall (alist-get column format-fns) element))
-                                                      (`((,column . ,args) ,_header)
-                                                       (apply (alist-get column format-fns) element args))
-                                                      (`(,column ,_header)
-                                                       (funcall (alist-get column format-fns) element)))
-                                                    ""))
-                               " | ")))
-      ;; Table header
-      (insert "| " (string-join (--map (pcase it
-                                         ((pred symbolp) (capitalize (symbol-name it)))
-                                         (`(,_ ,name) name))
-                                       columns)
-                                " | ")
-              " |" "\n")
-      (insert "|- \n")                  ; Separator hline
-      (dolist (element elements)
-        (insert "| " (format-element element) " |" "\n"))
-      (delete-char -1)
-      (org-table-align))))
-
 (cl-defun org-dblock-write:org-ql (params)
-  "Insert content for org-ql dynamic block at point according to PARAMS.
+    "Insert content for org-ql dynamic block at point according to PARAMS.
 Valid parameters include:
-
-  :from     A buffers/files spec passed to `org-ql-query''s FROM.
-            May be one of the symbols `buffer' (the current buffer),
-            `all' (all Org buffers), or `agenda' (files returned by
-            `org-agenda-files'); or a file/buffer, or a list of them.
+ :scope    The scope to consider for the Org QL query. This can
+            be one of the following:
+            `buffer'              the current buffer
+            `org-agenda-files'    all agenda files
+            `org-directory'       all org files
+            `(\"path\" ...)'      list of buffer names or file paths
+            `all'                 all agenda files, and org-mode buffers
 
   :query    An Org QL query expression in either sexp or string
             form.
@@ -454,15 +356,25 @@ this (must be a single line in the Org buffer):
                      query)))
            (columns (or columns '(heading todo (priority "P"))))
            ;; MAYBE: Custom column functions.
-           (format-fns
-            ;; NOTE: Backquoting this alist prevents the lambdas from seeing
-            ;; the variable `ts-format', so we use `list' and `cons'.
-            (list (cons 'todo (lambda (element)
-                                (org-element-property :todo-keyword element)))
-                  (cons 'heading (lambda (element)
-                                    (setf element (org-ql-view--resolve-element-properties element))
-                                    (let* ((raw (org-element-property :raw-value element))
-                                          (search (org-ql-search--link-heading-search-string raw))
+            (format-fns
+             ;; NOTE: Backquoting this alist prevents the lambdas from seeing
+             ;; the variable `ts-format', so we use `list' and `cons'.
+             (list (cons 'todo (lambda (element)
+                                 (org-element-property :todo-keyword element)))
+                   (cons 'category (lambda (element)
+                                     (or (org-element-property :CATEGORY element)
+                                         (when-let ((marker (or (org-element-property :org-hd-marker element)
+                                                                (org-element-property :org-marker element))))
+                                           (org-with-point-at marker
+                                             (or (org-get-category)
+                                                 (when buffer-file-name
+                                                   (file-name-sans-extension
+                                                    (file-name-nondirectory buffer-file-name))))))
+                                         "")))
+                   (cons 'heading (lambda (element)
+                                     (setf element (org-ql-view--resolve-element-properties element))
+                                     (let* ((raw (org-element-property :raw-value element))
+                                            (search (org-ql-search--link-heading-search-string raw))
                                           ;; Org tables don't special-case Org syntax: a literal
                                           ;; "|" anywhere in a cell creates another column.
                                           (desc (replace-regexp-in-string "|" "\\vert" (org-link-display-format raw) t t))
@@ -490,8 +402,8 @@ this (must be a single line in the Org buffer):
                   (cons 'closed (lambda (element)
                                   (--when-let (org-element-property :closed element)
                                     (ts-format ts-format (ts-parse-org-element it)))))
-                  (cons 'property (lambda (element property)
-                                    (org-element-property (intern (concat ":" (upcase property))) element)))))
+                   (cons 'property (lambda (element property)
+                                     (org-element-property (intern (concat ":" (upcase property))) element)))))
           (elements (org-ql-query :from from
                                   :where query
                                   :select 'element-with-markers
