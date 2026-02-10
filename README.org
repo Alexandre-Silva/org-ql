@@ -500,7 +500,9 @@ It would be expanded to:
 
 ** Dynamic block
 
-Org QL provides a dynamic block that lists entries in the current document matching a query.  In the header, these parameters are supported:
+Org QL provides a dynamic block that lists entries matching a query.  In the header, these parameters are supported:
+
++  ~:from~: A buffers/files spec (like ~org-ql-search~'s ~BUFFERS-FILES~).  May be ~buffer~ (the current buffer), ~all~ (all Org buffers), ~agenda~ (files in ~org-agenda-files~), a file/buffer, or a list of them.
 
 +  ~:query~: An Org QL query expression in either sexp or non-sexp form.
 +  ~:columns~ A list of columns, including ~heading~, ~todo~, ~property~, ~priority~, ~deadline~, ~scheduled~, ~closed~.
@@ -512,12 +514,12 @@ Org QL provides a dynamic block that lists entries in the current document match
 
 The heading column is formatted as a link to the heading (not shown in the following example).
 
-For example, this dynamic block shows the first seven headings that are to-do items with priority A or B, sorted by deadline then priority, with certain columns (including the value of the =agenda-group= property with a custom header) and timestamp format:
+For example, this dynamic block searches in agenda files and shows the first seven headings that are to-do items with priority A or B, sorted by deadline then priority, with certain columns (including the value of the =agenda-group= property with a custom header) and timestamp format:
 
 # NOTE: These results are edited manually because the Org links don't display well in the Info manual.
 
 #+BEGIN_SRC org
-  ,#+BEGIN: org-ql :query "todo: priority:A,B" :columns (todo (priority "P") ((property "agenda-group") "Group") deadline heading) :sort (deadline priority) :take 7 :ts-format "%Y-%m-%d %H:%M"
+  ,#+BEGIN: org-ql :from agenda :query "todo: priority:A,B" :columns (todo (priority "P") ((property "agenda-group") "Group") deadline heading) :sort (deadline priority) :take 7 :ts-format "%Y-%m-%d %H:%M"
   | Todo | P | Group | Deadline         | Heading                               |
   |------+---+-------+------------------+---------------------------------------|
   | TODO | A |       | 2017-07-07 00:00 | Take over the world                   |
