@@ -286,7 +286,8 @@ Valid parameters include:
             be one of the following:
             `buffer'              the current buffer
             `org-agenda-files'    all agenda files
-            `org-directory'       all org files
+            `org-directory'       all org files from org-directory variable
+            `org'                 same as `org-directory'
             `(\"path\" ...)'      list of buffer names or file paths
             `all'                 all agenda files, and org-mode buffers
 
@@ -330,11 +331,13 @@ this (must be a single line in the Org buffer):
            ;; Default: current buffer.
            ((or 'nil 'not-found) (current-buffer))
            ;; Common shorthands.
-           ((or 'buffer "buffer" "") (current-buffer))
-           ((or 'all "all") (--select (equal (buffer-local-value 'major-mode it) 'org-mode)
-                                       (buffer-list)))
-           ((or 'agenda "agenda" 'org-agenda-files "org-agenda-files")
-            (org-agenda-files nil 'ifmode))
+            ((or 'buffer "buffer" "") (current-buffer))
+            ((or 'all "all") (--select (equal (buffer-local-value 'major-mode it) 'org-mode)
+                                        (buffer-list)))
+            ((or 'agenda "agenda" 'org-agenda-files "org-agenda-files")
+             (org-agenda-files nil 'ifmode))
+            ((or 'org-dir "org" 'directory "directory" 'org-directory "org-directory")
+             (org-ql-search-directories-files))
            ;; Already-expanded.
            ((pred bufferp) from)
            ((pred stringp) from)
@@ -345,7 +348,7 @@ this (must be a single line in the Org buffer):
            ((pred listp)
             (if (cl-every (lambda (it) (or (stringp it) (bufferp it))) from)
                 from
-              (user-error "org-ql dynamic block: :from must be a file/buffer or list of them (or one of: buffer, all, agenda)")))
+              (user-error "org-ql dynamic block: :from must be a file/buffer or list of them (or one of: buffer, all, agenda, org-dir)")))
            (_ (user-error "org-ql dynamic block: Invalid :from: %S" from)))))
     (-let* (((&plist :from :query :columns :sort :ts-format :take) params)
             (from (expand-from from))
