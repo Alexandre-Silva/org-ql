@@ -339,6 +339,11 @@ this (must be a single line in the Org buffer):
                            org-directory))))))
            (when (and directory (file-directory-p directory))
              (org-ql-search-directories-files :directories (list directory) :recurse t))))
+       (normalize-file (file)
+         (let ((expanded (expand-file-name file)))
+           (if (file-exists-p expanded)
+               (file-truename expanded)
+             expanded)))
        (expand-from (from)
          ;; Dynamic block params may be edited in arbitrary Org files,
          ;; so avoid evaluating arbitrary forms (e.g. functions).
@@ -352,9 +357,10 @@ this (must be a single line in the Org buffer):
            ((or 'agenda "agenda" 'org-agenda-files "org-agenda-files")
             (org-agenda-files nil 'ifmode))
            ((or 'agenda-daily "agenda-daily")
-            (delete-dups
-             (append (org-agenda-files nil 'ifmode)
-                     (org-roam-dailies-files))))
+             (delete-dups
+              (mapcar #'normalize-file
+                      (append (org-agenda-files nil 'ifmode)
+                              (org-roam-dailies-files)))))
            ((or 'org-dir "org" 'directory "directory" 'org-directory "org-directory")
             (org-ql-search-directories-files :recurse t))
            ;; Already-expanded.
