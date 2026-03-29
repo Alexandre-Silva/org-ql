@@ -286,6 +286,7 @@ Valid parameters include:
             be one of the following:
             `buffer'              the current buffer
             `org-agenda-files'    all agenda files
+            `agenda-daily'        all agenda files plus org-roam dailies files
             `org-directory'       all org files from org-directory variable
             `org'                 same as `org-directory'
             `(\"path\" ...)'      list of buffer names or file paths
@@ -324,20 +325,38 @@ this (must be a single line in the Org buffer):
  :columns (priority todo heading) :sort (priority date)
  :ts-format \"%Y-%m-%d %H:%M\""
   (cl-labels
-      ((expand-from (from)
+      ((org-roam-dailies-files ()
+         (let* ((directory
+                 (and (boundp 'org-roam-dailies-directory)
+                      (stringp org-roam-dailies-directory)
+                      (if (file-name-absolute-p org-roam-dailies-directory)
+                          org-roam-dailies-directory
+                        (expand-file-name
+                         org-roam-dailies-directory
+                         (if (and (boundp 'org-roam-directory)
+                                  org-roam-directory)
+                             org-roam-directory
+                           org-directory))))))
+           (when (and directory (file-directory-p directory))
+             (org-ql-search-directories-files :directories (list directory) :recurse t))))
+       (expand-from (from)
          ;; Dynamic block params may be edited in arbitrary Org files,
          ;; so avoid evaluating arbitrary forms (e.g. functions).
          (pcase from
            ;; Default: current buffer.
            ((or 'nil 'not-found) (current-buffer))
            ;; Common shorthands.
-            ((or 'buffer "buffer" "") (current-buffer))
-            ((or 'all "all") (--select (equal (buffer-local-value 'major-mode it) 'org-mode)
+           ((or 'buffer "buffer" "") (current-buffer))
+           ((or 'all "all") (--select (equal (buffer-local-value 'major-mode it) 'org-mode)
                                         (buffer-list)))
-            ((or 'agenda "agenda" 'org-agenda-files "org-agenda-files")
-             (org-agenda-files nil 'ifmode))
-            ((or 'org-dir "org" 'directory "directory" 'org-directory "org-directory")
-             (org-ql-search-directories-files :recurse t))
+           ((or 'agenda "agenda" 'org-agenda-files "org-agenda-files")
+            (org-agenda-files nil 'ifmode))
+           ((or 'agenda-daily "agenda-daily")
+            (delete-dups
+             (append (org-agenda-files nil 'ifmode)
+                     (org-roam-dailies-files))))
+           ((or 'org-dir "org" 'directory "directory" 'org-directory "org-directory")
+            (org-ql-search-directories-files :recurse t))
            ;; Already-expanded.
            ((pred bufferp) from)
            ((pred stringp) from)
@@ -348,7 +367,7 @@ this (must be a single line in the Org buffer):
            ((pred listp)
             (if (cl-every (lambda (it) (or (stringp it) (bufferp it))) from)
                 from
-              (user-error "org-ql dynamic block: :from must be a file/buffer or list of them (or one of: buffer, all, agenda, org-dir)")))
+              (user-error "org-ql dynamic block: :from must be a file/buffer or list of them (or one of: buffer, all, agenda, agenda-daily, org-dir)")))
            (_ (user-error "org-ql dynamic block: Invalid :from: %S" from)))))
     (-let* (((&plist :from :query :columns :sort :ts-format :take) params)
             (from (expand-from from))
