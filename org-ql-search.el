@@ -337,7 +337,7 @@ this (must be a single line in the Org buffer):
             ((or 'agenda "agenda" 'org-agenda-files "org-agenda-files")
              (org-agenda-files nil 'ifmode))
             ((or 'org-dir "org" 'directory "directory" 'org-directory "org-directory")
-             (org-ql-search-directories-files))
+             (org-ql-search-directories-files :recurse t))
            ;; Already-expanded.
            ((pred bufferp) from)
            ((pred stringp) from)
